@@ -1,3 +1,1 @@
-1. Fix Vo-Wifi state detection.
-2. Fix module.prop corruption due to description update.
-3. Add Support for tun interface
+1. Fix update-binary to support Magisk Installation.
