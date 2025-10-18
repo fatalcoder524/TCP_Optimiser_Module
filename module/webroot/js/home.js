@@ -14,7 +14,7 @@ export async function updateModuleStatus () {
 		module_status = (await getModuleActiveState()) == true ? "Enabled ✅" : "Disabled ❌";
 		active_iface = await get_active_iface();
 		active_iface = active_iface ? active_iface : "None";
-		active_iface_type = active_iface.startsWith("rmnet") || active_iface.startsWith("ccmni") ? "Cellular 📶" : active_iface.startsWith("wlan") || active_iface.startsWith("tun") ? "Wi-Fi 🛜" : "Unknown ⁉️";
+		active_iface_type = active_iface.match("rmnet") || active_iface.match("rmnet") ? "Cellular 📶" : active_iface.startsWith("wlan") || active_iface.startsWith("tun") ? "Wi-Fi 🛜" : "Unknown ⁉️";
 		active_algorithm = await get_active_algorithm();
 		active_InitcwndInitrwndValue = await getInitcwndInitrwndValue();
 		if(active_iface_type == "Wi-Fi 🛜")

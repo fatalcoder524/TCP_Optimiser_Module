@@ -192,7 +192,7 @@ while true; do
 	new_mode="none"
 	case "$iface" in
 		wlan*|tun*) new_mode="Wi-Fi" ;;
-		rmnet*|ccmni*) new_mode="Cellular" ;;
+		*rmnet*|*ccmni*) new_mode="Cellular" ;;
 		*) new_mode="none" ;;
 	esac
 
