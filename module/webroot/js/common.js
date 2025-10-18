@@ -40,7 +40,7 @@ export async function updateModuleInformation () {
 
 export async function getModuleActiveState () {
 	try {
-		const { stdout: file_exists } = await exec(`ls "/dev/.tcp_module_log_cleared"`);
+		const { stdout: file_exists } = await exec(`su -c 'ls /dev/.tcp_module_log_cleared'`);
 		return file_exists != "" ? true: false;
 	}catch (error) {
 		console.error('Error updating module state:', error);
@@ -62,7 +62,7 @@ export async function get_active_iface () {
 
 export async function get_active_algorithm () {
 	try {
-		const { stdout: active_algo } = await exec(`cat /proc/sys/net/ipv4/tcp_congestion_control`);
+		const { stdout: active_algo } = await exec(`su -c "cat /proc/sys/net/ipv4/tcp_congestion_control"`);
 		return active_algo.trim()
 	} catch (error) {
 		console.error('Error fetching active interface: ', error);
@@ -90,7 +90,7 @@ export async function get_wifi_calling_state() {
 
   try {
     // Run dumpsys and save to file
-    await exec(`dumpsys activity service SystemUIService > "${DUMPSYS_TMP_FILE}" 2>/dev/null`);
+    await exec(`su -c 'dumpsys activity service SystemUIService > "${DUMPSYS_TMP_FILE}" 2>/dev/null'`);
 
     // Check for VoWiFi pattern
      const { stdout: returnCode } = await exec(`

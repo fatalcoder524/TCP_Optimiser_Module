@@ -5,7 +5,7 @@ import { fetchIsConfigFile } from './common.js';
 
 async function getSelectedAlgorithm(prefix) {
 	try {
-		const { stdout: algo } = await exec(`ls ${router_state.moduleInformation.moduleDir}/${prefix}_* 2>/dev/null | xargs -n 1 basename | head -n1 | awk -F_ '{print $NF}'`);
+		const { stdout: algo } = await exec(`su -c "ls ${router_state.moduleInformation.moduleDir}/${prefix}_* 2>/dev/null | xargs -n 1 basename | head -n1 | awk -F_ '{print $NF}'"`);
 		switch(prefix)
 		{
 			case "wlan":
@@ -58,7 +58,7 @@ const fetchAvailableAlgorithms = async (force = false) => {
 	try {
 		if(router_state.available_algorithms.length == 0 || force)
 		{
-			const { stdout: output } = await exec('cat /proc/sys/net/ipv4/tcp_available_congestion_control');
+			const { stdout: output } = await exec('su -c cat /proc/sys/net/ipv4/tcp_available_congestion_control');
 			if (output) {
 				// Split by whitespace and convert each into an object
 				router_state.available_algorithms = output.trim().split(/\s+/).map(algo => algo);
@@ -107,18 +107,18 @@ export async function initSettings() {
 		
 		try
 		{
-			await exec(`rm -f ${router_state.moduleInformation.moduleDir}/wlan_*`);
-			await exec(`rm -f ${router_state.moduleInformation.moduleDir}/rmnet_data_*`);
-			await exec(`rm -f ${router_state.moduleInformation.moduleDir}/kill_connections`);
-			await exec(`rm -f ${router_state.moduleInformation.moduleDir}/initcwnd_initrwnd`);
+			await exec(`su -c rm -f ${router_state.moduleInformation.moduleDir}/wlan_*`);
+			await exec(`su -c rm -f ${router_state.moduleInformation.moduleDir}/rmnet_data_*`);
+			await exec(`su -c rm -f ${router_state.moduleInformation.moduleDir}/kill_connections`);
+			await exec(`su -c rm -f ${router_state.moduleInformation.moduleDir}/initcwnd_initrwnd`);
 			
-			await exec(`touch ${router_state.moduleInformation.moduleDir}/wlan_${settings.wifiAlgorithm} && chmod 644 ${router_state.moduleInformation.moduleDir}/wlan_${settings.wifiAlgorithm}`);
-			await exec(`touch ${router_state.moduleInformation.moduleDir}/rmnet_data_${settings.cellularAlgorithm} && chmod 644 ${router_state.moduleInformation.moduleDir}/rmnet_data_${settings.cellularAlgorithm}`);
+			await exec(`su -c touch ${router_state.moduleInformation.moduleDir}/wlan_${settings.wifiAlgorithm} && chmod 644 ${router_state.moduleInformation.moduleDir}/wlan_${settings.wifiAlgorithm}`);
+			await exec(`su -c touch ${router_state.moduleInformation.moduleDir}/rmnet_data_${settings.cellularAlgorithm} && chmod 644 ${router_state.moduleInformation.moduleDir}/rmnet_data_${settings.cellularAlgorithm}`);
 			if(settings.killOnChange)
-				await exec(`touch ${router_state.moduleInformation.moduleDir}/kill_connections && chmod 644 ${router_state.moduleInformation.moduleDir}/kill_connections`);
+				await exec(`su -c "touch ${router_state.moduleInformation.moduleDir}/kill_connections && chmod 644 ${router_state.moduleInformation.moduleDir}/kill_connections"`);
 
 			if(settings.setInitcwndInitrwndOnChange)
-				await exec(`touch ${router_state.moduleInformation.moduleDir}/initcwnd_initrwnd && chmod 644 ${router_state.moduleInformation.moduleDir}/initcwnd_initrwnd`);
+				await exec(`su -c "touch ${router_state.moduleInformation.moduleDir}/initcwnd_initrwnd && chmod 644 ${router_state.moduleInformation.moduleDir}/initcwnd_initrwnd"`);
 
 			console.log('Applied settings:', settings);
 			
@@ -146,7 +146,7 @@ export async function initSettings() {
 		var res = await applySettings();
 		if(res == 0)
 		{
-			const { errno: output } = await exec(`touch ${router_state.moduleInformation.moduleDir}/force_apply && chmod 644 ${router_state.moduleInformation.moduleDir}/force_apply`);
+			const { errno: output } = await exec(`su -c "touch ${router_state.moduleInformation.moduleDir}/force_apply && chmod 644 ${router_state.moduleInformation.moduleDir}/force_apply"`);
 			if(output == 0)
 				toast("Wait for 5s to reflect changes!");
 		}
