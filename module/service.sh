@@ -75,8 +75,73 @@ set_qdisc() {
 	local iface="$1"
 	local qdisc="$2"
 	local mode="$3"
-	if run_as_su "tc qdisc replace dev $iface root $qdisc"; then
+
+	local qdisc_args="$qdisc"
+	local handle_flag=""
+
+	if [ "$qdisc" = "fq" ]; then
+		qdisc_args="fq pacing limit 2000 flow_limit 40 buckets 1024 initial_quantum 15000"
+	elif [ "$qdisc" = "fq_codel" ]; then
+		qdisc_args="fq_codel limit 1024 target 5ms interval 100ms ecn"
+	elif [ "$qdisc" = "htb" ]; then
+		handle_flag="handle 1:"
+		qdisc_args="htb default 1 r2q 10"
+	elif [ "$qdisc" = "sfq" ]; then
+		qdisc_args="sfq"
+	elif [ "$qdisc" = "multiq" ]; then
+		qdisc_args="multiq"
+	elif [ "$qdisc" = "tbf" ]; then
+		qdisc_args="tbf rate 1000mbit burst 100kb latency 50ms"
+	elif [ "$qdisc" = "prio" ]; then
+		handle_flag="handle 1:"
+		qdisc_args="prio bands 3"
+	elif [ "$qdisc" = "pfifo" ]; then
+		qdisc_args="pfifo limit 2000"
+	elif [ "$qdisc" = "bfifo" ]; then
+		qdisc_args="bfifo limit 3145728"
+	elif [ "$qdisc" = "pfifo_fast" ]; then
+		qdisc_args="pfifo_fast"
+	elif [ "$qdisc" = "cake" ]; then
+		qdisc_args="cake besteffort triple-isolate wash"
+	elif [ "$qdisc" = "pie" ]; then
+		qdisc_args="pie target 5ms ecn"
+	fi
+
+	if run_as_su "tc qdisc replace dev $iface root $handle_flag $qdisc_args"; then
 		log_print "Applied qdisc: $qdisc ($iface)"
+
+		if [ "$qdisc" = "htb" ]; then
+			run_as_su "tc class add dev $iface parent 1: classid 1:1 htb rate 1000mbit ceil 1000mbit" 2>/dev/null
+			run_as_su "tc qdisc add dev $iface parent 1:1 handle 10: fq_codel limit 1024 target 5ms interval 100ms ecn" 2>/dev/null
+			
+			log_print " [+] Attached low-latency fq_codel leaf to HTB root on $iface"
+		elif [ "$qdisc" = "multiq" ]; then
+			local qdisc_show=$(tc qdisc show dev "$iface" | grep "multiq")
+			local root_handle=$(echo "$qdisc_show" | awk '{print $3}')
+			local total_bands=$(echo "$qdisc_show" | awk '{print $NF}' | cut -d'/' -f1)
+			
+			root_handle=${root_handle:-"1:"}
+			total_bands=${total_bands:-4}
+			
+			log_print " [~] Configuring $total_bands bands on parent $root_handle dynamically..."
+
+			local i=1
+			while [ "$i" -le "$total_bands" ]; do
+				local hex_id=$(printf "%x" "$i")
+				run_as_su "tc qdisc add dev $iface parent ${root_handle}${hex_id} handle $((i + 10)): fq_codel limit 1024 target 5ms interval 100ms ecn" 2>/dev/null
+				i=$((i + 1))
+			done
+
+			log_print " [+] Fully optimized multiq hardware lanes on $iface"
+		elif [ "$qdisc" = "prio" ]; then
+			local b=1
+			while [ "$b" -le 3 ]; do
+				run_as_su "tc qdisc add dev $iface parent 1:$b handle $((b + 20)): fq_codel limit 1024 target 5ms interval 100ms ecn" 2>/dev/null
+				b=$((b + 1))
+			done
+			log_print " [+] Attached low-latency fq_codel leaves to all prio bands on $iface"
+		fi
+
 		CURRENT_QDISC=$qdisc
 		update_description "$mode"
 	else
