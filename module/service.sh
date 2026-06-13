@@ -216,11 +216,15 @@ vowifi_start_time=0
 resetprop -w sys.boot_completed 0
 
 sleep 20
+current_time=0
 
 while true; do
-	current_time=$(date +%s)
 	iface=$(get_active_iface)
-	[ -z "$iface" ] && sleep 5 && continue
+	if [ -z "$iface" ]; then
+		sleep 5
+		current_time=$((current_time + 5))
+		continue
+	fi
 
 	new_mode="none"
 	case "$iface" in
@@ -262,4 +266,5 @@ while true; do
 	fi
 
 	sleep 5
+	current_time=$((current_time + 5))
 done
