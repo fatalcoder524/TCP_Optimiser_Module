@@ -244,12 +244,6 @@ apply_cellular_settings() {
 
 # Start Run Code
 
-# On startup, reset description to default
-if [ -f "$MODPATH/module.prop" ]; then
-	default_desc="TCP Optimisations & update tcp_cong_algo based on interface"
-	sed -i -e "s/^description=.*/description=$default_desc/" "$MODPATH/module.prop"
-fi
-
 # IPv4 TCP optimizations
 echo 1 > /proc/sys/net/ipv4/tcp_ecn 2>/dev/null
 echo "pfifo_fast" > /proc/sys/net/core/default_qdisc 2>/dev/null

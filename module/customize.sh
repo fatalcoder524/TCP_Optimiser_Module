@@ -121,3 +121,12 @@ if check_exists_anywhere "initcwnd"; then
         ui_print " [-] Skipping $MODPATH/initcwnd_initrwnd: file already exists."
     fi
 fi
+
+cp "$MODPATH/module.prop" "$MODPATH/module.prop.bak"
+
+cat << 'EOF' > /data/adb/post-fs-data.d/tcp_optimiser.sh
+#!/system/bin/sh
+MODDIR=/data/adb/modules/tcp_optimiser
+cp "$MODDIR/module.prop.bak" "$MODDIR/module.prop"
+EOF
+chmod +x /data/adb/post-fs-data.d/tcp_optimiser.sh
