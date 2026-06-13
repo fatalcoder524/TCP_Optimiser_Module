@@ -1,8 +1,8 @@
 #!/system/bin/sh
 
 MODPATH="${0%/*}"
-DEBOUNCE_TIME=10
-VOWIFI_CONNECT_TIME=10
+DEBOUNCE_TIME=5
+VOWIFI_CONNECT_TIME=20
 
 . $MODPATH/utils.sh # Load utils
 
@@ -281,6 +281,7 @@ vowifi_start_time=0
 
 resetprop -w sys.boot_completed 0
 
+until [ -d "/sdcard/Android/data" ]; do sleep 1; done
 sleep 20
 current_time=0
 
