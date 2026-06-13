@@ -116,9 +116,9 @@ set_qdisc() {
 			
 			log_print " [+] Attached low-latency fq_codel leaf to HTB root on $iface"
 		elif [ "$qdisc" = "multiq" ]; then
-			local qdisc_show=$(tc qdisc show dev "$iface" | grep "multiq")
+			local qdisc_show=$(su -c "tc qdisc show dev $iface | grep multiq")
 			local root_handle=$(echo "$qdisc_show" | awk '{print $3}')
-			local total_bands=$(echo "$qdisc_show" | awk '{print $NF}' | cut -d'/' -f1)
+			local total_bands=$(echo "$qdisc_show" | grep -o "bands [^ ]*" | awk '{print $2}' | cut -d'/' -f1)
 			
 			root_handle=${root_handle:-"1:"}
 			total_bands=${total_bands:-4}
