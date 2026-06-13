@@ -134,7 +134,7 @@ apply_wifi_settings() {
 	fi
 	
 	for algo in $congestion_algorithms; do
-		for filepath in "$MODPATH/wlan_${algo}"_*; do
+		for filepath in "$MODPATH/wlan_${algo}_"*; do
 			if [ -f "$filepath" ]; then
 				set_congestion "$algo" "Wi-Fi"
 				
@@ -159,7 +159,7 @@ apply_cellular_settings() {
 	set_tcp_pacing 120 200
 	
 	for algo in $congestion_algorithms; do
-		for filepath in "$MODPATH/rmnet_data_${algo}"_*; do
+		for filepath in "$MODPATH/rmnet_data_${algo}_"*; do
 			if [ -f "$filepath" ]; then
 				set_congestion "$algo" "Cellular"
 
