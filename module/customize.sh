@@ -4,12 +4,18 @@ ui_print " [+] Starting module customization..."
 
 # Detect congestion algorithm
 ui_print " [+] Checking TCP congestion algorithm..."
-if grep -qw bbr /proc/sys/net/ipv4/tcp_available_congestion_control; then
+AVAIL_CC="$(cat /proc/sys/net/ipv4/tcp_available_congestion_control)"
+ui_print " Available CC: $AVAIL_CC"
+
+if echo "$AVAIL_CC" | grep -qw bbr3; then
+    CONG="bbr3"
+    ui_print " [+] Found BBR3!"
+elif echo "$AVAIL_CC" | grep -qw bbr; then
     CONG="bbr"
     ui_print " [+] Found BBR!"
 else
     CONG="cubic"
-    ui_print " [+] BBR not found. Going with Cubic!"
+    ui_print " [+] BBR/BBR3 not found. Falling back to Cubic!"
 fi
 
 MODULE_NAME=$(basename "$MODPATH")
@@ -63,11 +69,7 @@ create_file_if_needed() {
 }
 
 # Create wlan_* based on BBR availability
-if [ "$CONG" = "bbr" ]; then
-    create_file_if_needed "wlan" "bbr"
-else
-    create_file_if_needed "wlan" "cubic"
-fi
+create_file_if_needed "wlan" "$CONG"
 
 # Always create rmnet_data_cubic unless another exists
 create_file_if_needed "rmnet_data" "cubic"
