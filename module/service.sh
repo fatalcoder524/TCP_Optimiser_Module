@@ -106,7 +106,7 @@ set_tcp_pacing() {
 }
 
 get_active_iface() {
-	iface=$(ip route get 192.0.2.1 2>/dev/null | awk '/dev/ {for(i=1;i<=NF;i++) if($i=="dev") print $(i+1)}')
+	iface=$(ip route get 192.0.2.1 2>/dev/null | grep -o "dev [^ ]*" | awk '{print $2}')
 	echo "$iface"
 }
 
@@ -140,7 +140,7 @@ apply_wifi_settings() {
 				
 				local filename="${filepath##*/}"
 				local qdisc="${filename#wlan_${algo}_}"
-				set_qdisc "$iface" "fq_codel" "Wi-Fi"
+				set_qdisc "$iface" "$qdisc" "Wi-Fi"
 
 				set_max_initcwnd_initrwnd "$iface"
 				applied=1
