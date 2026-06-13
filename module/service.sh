@@ -38,9 +38,14 @@ set_max_initcwnd_initrwnd() {
 	local active_iface="$1"
 	if [ -f "$MODPATH/initcwnd_initrwnd" ]; then
 		maxBufferSize=$(cat /proc/sys/net/ipv4/tcp_rmem | awk '{print $3}')
+		maxBufferSize=${maxBufferSize:-16777216}
 		mtu=$(ip link show "$active_iface" | awk '/mtu/ {print $NF}')
+		mtu=${mtu:-1500}
 		mtu=$((mtu - 40))
 		maxInitrwndValue=$((maxBufferSize / mtu))
+		if [ "$maxInitrwndValue" -gt 64 ]; then
+			maxInitrwndValue=64
+		fi
 		local applied
 		applied=0
 
