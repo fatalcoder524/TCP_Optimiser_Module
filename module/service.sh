@@ -50,12 +50,19 @@ set_max_initcwnd_initrwnd() {
 		applied=0
 
 		while IFS= read -r line; do
+			[ -z "$line" ] && continue
 			run_as_su "/system/bin/ip route change $line initcwnd 10 initrwnd $maxInitrwndValue"
-			if [ $? -eq 0 ]; then
-				 applied=1
-			fi
+			[ $? -eq 0 ] && applied=1
 		done <<EOF
 $(run_as_su "/system/bin/ip route show | grep \"dev $active_iface\"")
+EOF
+
+		while IFS= read -r line; do
+			[ -z "$line" ] && continue
+			run_as_su "/system/bin/ip -6 route change $line initcwnd 10 initrwnd $maxInitrwndValue"
+			[ $? -eq 0 ] && applied=1
+		done <<EOF
+$(run_as_su "/system/bin/ip -6 route show | grep \"dev $active_iface\"")
 EOF
 
 		if [ "$applied" -eq 1 ]; then
