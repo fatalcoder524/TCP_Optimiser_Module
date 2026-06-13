@@ -11,23 +11,25 @@ In certain kernel, TCP Congestion Algorithm BBR might be enabled. Or you want to
 
 # How to use
 1. Install the module.
-2. It creates 2 files `wlan_{algo}` and `rmnet_data_{algo}` in module folder.
+2. It creates 2 files `wlan_{algo}_{qdisc}` and `rmnet_data_{algo}_{qdisc}` in module folder.
 3. Reboot device.
 4. Basic Functionality of module must run normally on boot.
 
 # Tuning Module by files [/data/adb/modules/tcp_optimiser]
-1. TCP Congestion Algorithm can be changed for given interface by editing `{algo}` part of file name. `wlan_{algo}` for Wi-Fi and `rmnet_data_{algo}` for Cellular.
-2. Create an empty file named `initcwnd_initrwnd` to set initcwnd and initrwnd value to max values.
-3. Create an empty file named `kill_connections` to kill all connections during switch. [Be carefull!]
-4. Create an empty file named `force_apply` to apply changes immediately.
+1. TCP Congestion Algorithm can be changed for given interface by editing `{algo}` part of file name. `wlan_{algo}_{qdisc}` for Wi-Fi and `rmnet_data_{algo}_qdisc` for Cellular.
+2. Queuing Disciplines can be changed for given interface by editing `{qdisc}` part of file name. `wlan_{algo}_{qdisc}` for Wi-Fi and `rmnet_data_{algo}_qdisc` for Cellular.
+3. Create an empty file named `initcwnd_initrwnd` to set initcwnd and initrwnd value to max values.
+4. Create an empty file named `kill_connections` to kill all connections during switch. [Be carefull!]
+5. Create an empty file named `force_apply` to apply changes immediately.
 
 # Tuning Module by WebUI
 All the module settings can be controlled using Module WebUI in KSU and APatch or KsuWebUIStandalone app for Magisk.
 
 ## Note:
 1. `{algo}` in filename can be any TCP congestion algorithm (cubic, bbr, reno etc..). 
-2. Default algorithm is **cubic** for **cellular**.
-3. Default algorithm is **bbr** if exists for **WiFi**. Else **cubic**.
-4. There is an option to kill current tcp connections during algorithm change. This will stop downloads, uploads or other ongoing connections. So apps affected might need to be restarted. This is disabled by default.
-5. Algorithm is applied only if present in kernel.
-6. Module logs are present in `/data/adb/modules/tcp_optimiser/service.log`.
+2. `{qdisc}` in filename can be any Queuing Disciplines (fq, fq_codel, pfifo_fast etc..). 
+3. Default algorithm is **cubic** for **cellular**.
+4. Default algorithm is **bbr** if exists for **WiFi**. Else **cubic**.
+5. There is an option to kill current tcp connections during algorithm change. This will stop downloads, uploads or other ongoing connections. So apps affected might need to be restarted. This is disabled by default.
+6. Algorithm is applied only if present in kernel.
+7. Module logs are present in `/data/adb/modules/tcp_optimiser/service.log`.

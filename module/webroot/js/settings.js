@@ -3,9 +3,40 @@ import router_state from './router.js';
 import { addLog } from './logs.js';
 import { fetchIsConfigFile } from './common.js';
 
+async function getSelectedQdisc(prefix) {
+	try {
+		const { stdout: rawFile } = await exec(`ls ${router_state.moduleInformation.moduleDir}/${prefix}_* 2>/dev/null | xargs -n 1 basename | head -n1`);
+		const fileName = rawFile.trim();
+		if (!fileName) return "fifo";
+		const stripInterface = fileName.replace(`${prefix}_`, '');
+		const qdisc = stripInterface.substring(stripInterface.indexOf('_') + 1);
+		switch(prefix)
+		{
+			case "wlan":
+				router_state.settingsPageParams.wlanQdisc = qdisc.trim();
+				return router_state.settingsPageParams.wlanQdisc;
+				break;
+			
+			case "rmnet_data":
+				router_state.settingsPageParams.rmnetQdisc = qdisc.trim();
+				return router_state.settingsPageParams.rmnetQdisc;
+				break;
+		}
+	} catch (error) {
+		console.error('Error fetching qdiscs:', error);
+		addLog('Error fetching queuing discipline');
+		toast("Error fetching queuing discipline.");
+		return null;
+	}
+}
+
 async function getSelectedAlgorithm(prefix) {
 	try {
-		const { stdout: algo } = await exec(`ls ${router_state.moduleInformation.moduleDir}/${prefix}_* 2>/dev/null | xargs -n 1 basename | head -n1 | awk -F_ '{print $NF}'`);
+		const { stdout: rawFile } = await exec(`ls ${router_state.moduleInformation.moduleDir}/${prefix}_* 2>/dev/null | xargs -n 1 basename | head -n1`);
+		const fileName = rawFile.trim();
+		if (!fileName) return "fifo";
+		const stripInterface = fileName.replace(`${prefix}_`, '');
+		const algo = stripInterface.substring(0, stripInterface.indexOf('_'));
 		switch(prefix)
 		{
 			case "wlan":
@@ -19,39 +50,64 @@ async function getSelectedAlgorithm(prefix) {
 				break;
 		}
 	} catch (error) {
-		console.error('Error fetching algorithms:', error);
-		addLog('Error fetching congestion control algorithms');
-		toast("Error fetching congestion control algorithms.");
+		console.error('Error fetching algorithm:', error);
+		addLog('Error fetching congestion control algorithm');
+		toast("Error fetching congestion control algorithm.");
 		return null;
 	}
 }
 
-async function checkAndGetPrefixValueExists(prefix) {
+async function checkAndGetPrefixValueExists(prefix, type) {
 	switch(prefix)
 	{
 		case "wlan":
-			return router_state.settingsPageParams.wlanAlgo == null ? await getSelectedAlgorithm(prefix): router_state.settingsPageParams.wlanAlgo;
-			break;
+			switch(type)
+			{
+				case "algo":
+					return router_state.settingsPageParams.wlanAlgo == null ? await getSelectedAlgorithm(prefix): router_state.settingsPageParams.wlanAlgo;
+					break;
+				case "qdisc":
+					return router_state.settingsPageParams.wlanQdisc == null ? await getSelectedQdisc(prefix): router_state.settingsPageParams.wlanQdisc;
+					break;
+			}
+		break;
 		
 		case "rmnet_data":
-			return router_state.settingsPageParams.rmnetAlgo == null ? await getSelectedAlgorithm(prefix): router_state.settingsPageParams.rmnetAlgo;
+			switch(type)
+			{
+				case "algo":
+					return router_state.settingsPageParams.rmnetAlgo == null ? await getSelectedAlgorithm(prefix): router_state.settingsPageParams.rmnetAlgo;
+					break;
+				case "qdisc":
+					return router_state.settingsPageParams.rmnetQdisc == null ? await getSelectedQdisc(prefix): router_state.settingsPageParams.rmnetQdisc;
+					break;
+			}
 			break;
 	}
 }
 
-async function populateDropdown(dropdown, options, prefix) {
+async function populateDropdown(dropdown, options, prefix, type) {
 	dropdown.innerHTML = '';
-	var algorithm = await checkAndGetPrefixValueExists(prefix);
-	var algorithmExists = false;
+
+	var value = await checkAndGetPrefixValueExists(prefix, type);
+	var valueExists = false;
   
 	options.forEach(option => {
 		const optionElement = document.createElement('option');
 		optionElement.textContent = optionElement.value = option;
 		dropdown.appendChild(optionElement);
-		algorithmExists = (algorithm == option) ? true: algorithmExists;
+		valueExists = (value == option) ? true: valueExists;
 	});
 
-	dropdown.value = algorithmExists ? algorithm : "cubic";
+	switch(type)
+	{
+		case "algo":
+			dropdown.value = valueExists ? value : "cubic";
+			break;
+		case "qdisc":
+			dropdown.value = valueExists ? value : "fifo";
+			break;
+	}
 }
 
 const fetchAvailableAlgorithms = async (force = false) => {
@@ -75,9 +131,53 @@ const fetchAvailableAlgorithms = async (force = false) => {
 	}
 };
 
+const fetchAvailableQdiscs = async (force = false) => {
+	try {
+		if (router_state.available_qdiscs.length === 0 || force) {
+			const { stdout: output } = await exec('zcat /proc/config.gz | grep "CONFIG_NET_SCH_"');
+			if (output) {
+				const qdiscs = [];
+				output.split('\n').forEach(line => {
+					const match = line.match(/^CONFIG_NET_SCH_([A-Z0-9_]+)=y$/);
+					if (match) {
+						const qdiscName = match[1];
+						if (qdiscName !== "INGRESS" && qdiscName !== "NETEM")
+						{
+							if(qdiscName === "FIFO")
+							{
+								qdiscs.push("pfifo");
+								qdiscs.push("bfifo");
+							}
+							else
+							{
+								qdiscs.push(qdiscName.toLowerCase());
+							}
+						}
+					}
+				});
+
+				if (!qdiscs.includes("pfifo_fast")) {
+					qdiscs.push("pfifo_fast");
+				}
+				router_state.available_qdiscs = qdiscs;
+			} else {
+				addLog('Failed to fetch queuing disciplines');
+				toast("No queuing disciplines found.");
+			}
+		}
+		
+	} catch (error) {
+		console.error('Error fetching queuing disciplines:', error);
+		addLog('Error fetching queuing disciplines');
+		toast("Error fetching queuing disciplines.");
+	}
+};
+
 export async function initSettings() {
 	const wifiAlgo = document.getElementById('wifi-algo');
+	const wifiQdisc = document.getElementById('wifi-qdisc');
 	const cellularAlgo = document.getElementById('cellular-algo');
+	const cellularQdisc = document.getElementById('cellular-qdisc');
 	const killConnections = document.getElementById('kill-connections');
 	const initcwndInitrwnd = document.getElementById('initcwnd-initrwnd');
 	const applyBtn = document.getElementById('apply');
@@ -86,21 +186,28 @@ export async function initSettings() {
 	if(router_state.available_algorithms.length == 0)
 		await fetchAvailableAlgorithms();
 	
+	if(router_state.available_qdiscs.length == 0)
+		await fetchAvailableQdiscs();
+	
 	if(router_state.settingsPageParams.killConnections == null)
 		router_state.settingsPageParams.killConnections = await fetchIsConfigFile("kill_connections");
 	
 	if(router_state.settingsPageParams.initcwndInitrwnd == null)
 		router_state.settingsPageParams.initcwndInitrwnd = await fetchIsConfigFile("initcwnd_initrwnd");
 	
-	await populateDropdown(wifiAlgo, router_state.available_algorithms, "wlan");
-	await populateDropdown(cellularAlgo, router_state.available_algorithms, "rmnet_data");
+	await populateDropdown(wifiAlgo, router_state.available_algorithms, "wlan", "algo");
+	await populateDropdown(wifiQdisc, router_state.available_qdiscs, "wlan", "qdisc");
+	await populateDropdown(cellularAlgo, router_state.available_algorithms, "rmnet_data", "algo");
+	await populateDropdown(cellularQdisc, router_state.available_qdiscs, "rmnet_data", "qdisc");
 	killConnections.checked =  router_state.settingsPageParams.killConnections;
 	initcwndInitrwnd.checked = router_state.settingsPageParams.initcwndInitrwnd;
 
 	async function applySettings() {
 		const settings = {
 			wifiAlgorithm: wifiAlgo.value,
+			wifiQdisc: wifiQdisc.value,
 			cellularAlgorithm: cellularAlgo.value,
+			cellularQdisc: cellularQdisc.value,
 			killOnChange: killConnections.checked,
 			setInitcwndInitrwndOnChange: initcwndInitrwnd.checked,
 		};
@@ -112,8 +219,8 @@ export async function initSettings() {
 			await exec(`rm -f ${router_state.moduleInformation.moduleDir}/kill_connections`);
 			await exec(`rm -f ${router_state.moduleInformation.moduleDir}/initcwnd_initrwnd`);
 			
-			await exec(`touch ${router_state.moduleInformation.moduleDir}/wlan_${settings.wifiAlgorithm} && chmod 644 ${router_state.moduleInformation.moduleDir}/wlan_${settings.wifiAlgorithm}`);
-			await exec(`touch ${router_state.moduleInformation.moduleDir}/rmnet_data_${settings.cellularAlgorithm} && chmod 644 ${router_state.moduleInformation.moduleDir}/rmnet_data_${settings.cellularAlgorithm}`);
+			await exec(`touch ${router_state.moduleInformation.moduleDir}/wlan_${settings.wifiAlgorithm}_${settings.wifiQdisc} && chmod 644 ${router_state.moduleInformation.moduleDir}/wlan_${settings.wifiAlgorithm}_${settings.wifiQdisc}`);
+			await exec(`touch ${router_state.moduleInformation.moduleDir}/rmnet_data_${settings.cellularAlgorithm}_${settings.cellularQdisc} && chmod 644 ${router_state.moduleInformation.moduleDir}/rmnet_data_${settings.cellularAlgorithm}_${settings.cellularQdisc}`);
 			if(settings.killOnChange)
 				await exec(`touch ${router_state.moduleInformation.moduleDir}/kill_connections && chmod 644 ${router_state.moduleInformation.moduleDir}/kill_connections`);
 
@@ -123,11 +230,13 @@ export async function initSettings() {
 			console.log('Applied settings:', settings);
 			
 			router_state.settingsPageParams.wifiAlgo = settings.wifiAlgorithm;
+			router_state.settingsPageParams.wlanQdisc = settings.wifiQdisc;
 			router_state.settingsPageParams.rmnetAlgo = settings.cellularAlgorithm;
+			router_state.settingsPageParams.rmnetQdisc = settings.cellularQdisc;
 			router_state.settingsPageParams.killConnections = settings.killOnChange;
 			router_state.settingsPageParams.initcwndInitrwnd = settings.setInitcwndInitrwndOnChange;
 			toast("Settings Applied Successfully!");
-			addLog(`Applying settings: WiFi=${settings.wifiAlgorithm}, Cellular=${settings.cellularAlgorithm}, Kill=${settings.killOnChange}, initcwnd_initrwnd=${settings.setInitcwndInitrwndOnChange}`);
+			addLog(`Applying settings: WiFi=${settings.wifiAlgorithm}, WiFi_qdisc=${settings.wifiQdisc}, Cellular=${settings.cellularAlgorithm}, Cellular_qdisc=${settings.cellularQdisc}, Kill=${settings.killOnChange}, initcwnd_initrwnd=${settings.setInitcwndInitrwndOnChange}`);
 			return 0;
 		} catch (error) {
 			console.error('Error applying settings:', error);

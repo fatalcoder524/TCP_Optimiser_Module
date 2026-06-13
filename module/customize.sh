@@ -9,12 +9,15 @@ ui_print " Available CC: $AVAIL_CC"
 
 if echo "$AVAIL_CC" | grep -qw bbr3; then
     CONG="bbr3"
+    QDISC="fq"
     ui_print " [+] Found BBR3!"
 elif echo "$AVAIL_CC" | grep -qw bbr; then
     CONG="bbr"
+    QDISC="fq_codel"
     ui_print " [+] Found BBR!"
 else
     CONG="cubic"
+    QDISC="fq_codel"
     ui_print " [+] BBR/BBR3 not found. Falling back to Cubic!"
 fi
 
@@ -41,7 +44,10 @@ check_exists_anywhere() {
 create_file_if_needed() {
     local prefix="$1"
     local suffix="$2"
-    local target="$MODPATH/${prefix}_${suffix}"
+    local extra="$3"
+
+    local target_name="${prefix}_${suffix}_${extra}"
+    local target="$MODPATH/$target_name"
 
     if check_exists_anywhere "$prefix"; then
         # If file exists and KSU is true, copy any file from MODULEPATH with the same prefix
@@ -49,13 +55,27 @@ create_file_if_needed() {
             # Find any file starting with ${prefix}_ in MODULEPATH and copy it to MODPATH
             source_file=$(find "$MODULE_PATH" -name "${prefix}_*" -print -quit)
             if [ -n "$source_file" ]; then
-                cp "$source_file" "$MODPATH/"
-                
                 file_name=$(basename "$source_file")
+                cp "$source_file" "$MODPATH/"
                 ui_print " [+] Copied from $MODULE_PATH to $MODPATH: $file_name"
+                
+                local remainder="${file_name#${prefix}_}"
+                if [ "$remainder" = "${remainder%_*}" ]; then
+                    mv "$MODPATH/$file_name" "$MODPATH/${file_name}_${extra}"
+                    ui_print " [~] Renamed single-suffix file to: ${file_name}_${extra}"
+                fi
             fi
         else
             ui_print " [-] Skipping $target: file already exists."
+            source_file=$(find "$MODULE_PATH" -name "${prefix}_*" -print -quit)
+            if [ -n "$source_file" ]; then
+                file_name=$(basename "$source_file")
+                local remainder="${file_name#${prefix}_}"
+                if [ "$remainder" = "${remainder%_*}" ]; then
+                    mv "$MODULE_PATH/$file_name" "$MODULE_PATH/${file_name}_${extra}"
+                    ui_print " [~] Renamed single-suffix file to: ${file_name}_${extra}"
+                fi
+            fi
         fi
         return
     fi
@@ -69,10 +89,10 @@ create_file_if_needed() {
 }
 
 # Create wlan_* based on BBR availability
-create_file_if_needed "wlan" "$CONG"
+create_file_if_needed "wlan" "$CONG" "$QDISC"
 
 # Always create rmnet_data_cubic unless another exists
-create_file_if_needed "rmnet_data" "cubic"
+create_file_if_needed "rmnet_data" "cubic" "fq_codel"
 
 if check_exists_anywhere "kill"; then
     # If file exists and KSU is true, copy any file from MODULEPATH with the same prefix

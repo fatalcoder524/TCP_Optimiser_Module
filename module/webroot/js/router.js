@@ -11,18 +11,22 @@ const router_state = {
 		module_status: "Loading Module Status...⌛",
 		active_iface_type: "None",
 		active_iface: "Unknown ⁉️",
-		active_algorithm: "Unknown",
+		active_algorithm: "Unknown ⁉️",
+		active_qdisc: "Unknown ⁉️",
 		active_InitcwndInitrwndValue: [],
 		wifi_calling_state: false,
 	},
 	settingsPageParams: {
 		wlanAlgo: null,
+		wlanQdisc: null,
 		rmnetAlgo: null,
+		rmnetQdisc: null,
 		killConnections: null,
 		initcwndInitrwnd: null,
 	},
 	logsList: [],
 	available_algorithms: [],
+	available_qdiscs: [],
 	current_active_page: null,
 };
 

@@ -72,6 +72,26 @@ export async function get_active_algorithm () {
 	}
 };
 
+export async function get_active_qdisc(iface) {
+	try {
+		const { stdout: qdiscRaw } = await exec(`tc qdisc show dev ${iface} 2>/dev/null`);
+		if (qdiscRaw) {
+			// Extract the very first word after 'qdisc ' (e.g., 'fq', 'netem', 'fq_codel')
+			const match = qdiscRaw.trim().match(/^qdisc\s+(\S+)/);
+			if (match && match[1]) {
+				return match[1];
+			}
+		}
+		
+		return null;
+	} catch (error) {
+		console.error('Error fetching active qdisc: ', error);
+		addLog('Error fetching active qdisc.');
+		toast("Error fetching active qdisc.");
+		return "error";
+	}
+}
+
 export async function getInitcwndInitrwndValue () {
 	try {
 		const { stdout: initcwndInitrwndValueOutput } = await exec(`ip route show | grep -o 'initcwnd [0-9]* initrwnd [0-9]*'`);

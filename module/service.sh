@@ -9,9 +9,11 @@ VOWIFI_CONNECT_TIME=10
 # Get the list of available congestion control algorithms
 congestion_algorithms=$(cat /proc/sys/net/ipv4/tcp_available_congestion_control)
 
+CURRENT_ALGO=""
+CURRENT_QDISC=""
+
 update_description() {
 	local iface="$1"
-	local algo="$2"
 	local icon="⁉️"
 
 	case "$iface" in
@@ -19,7 +21,7 @@ update_description() {
 		Cellular) icon="📶" ;;
 	esac
 
-	local desc="TCP Optimisations \& update tcp_cong_algo based on interface \| iface\: $iface $icon \| algo\: $algo"
+	local desc="TCP Optimisations \& update tcp_cong_algo based on interface \| iface\: $iface $icon \| algo\: $CURRENT_ALGO \| qdisc\: $CURRENT_QDISC"
 	sed -i -e "s/^description=.*/description=$desc/" "$MODPATH/module.prop"
 }
 
@@ -60,8 +62,11 @@ EOF
 set_qdisc() {
 	local iface="$1"
 	local qdisc="$2"
+	local mode="$3"
 	if run_as_su "tc qdisc replace dev $iface root $qdisc"; then
 		log_print "Applied qdisc: $qdisc ($iface)"
+		CURRENT_QDISC=$qdisc
+		update_description "$mode"
 	else
 		log_print "Failed to apply qdisc: $qdisc ($iface)"
 	fi
@@ -74,7 +79,8 @@ set_congestion() {
 		echo "$algo" > /proc/sys/net/ipv4/tcp_congestion_control 2>/dev/null
 		log_print "Applied congestion control: $algo ($mode)"
 		kill_tcp_connections
-		update_description "$mode" "$algo"
+		CURRENT_ALGO=$algo
+		update_description "$mode"
 	else
 		log_print "Unavailable algorithm: $algo"
 	fi
@@ -116,15 +122,19 @@ apply_wifi_settings() {
 	fi
 	
 	for algo in $congestion_algorithms; do
-		if [ -f "$MODPATH/wlan_$algo" ]; then
-			set_congestion "$algo" "Wi-Fi"
-			if [ "$algo" = "bbr" ]; then
-				set_qdisc "$iface" "fq_codel"
+		for filepath in "$MODPATH/wlan_${algo}"_*; do
+			if [ -f "$filepath" ]; then
+				set_congestion "$algo" "Wi-Fi"
+				
+				local filename="${filepath##*/}"
+				local qdisc="${filename#wlan_${algo}_}"
+				set_qdisc "$iface" "fq_codel" "Wi-Fi"
+
+				set_max_initcwnd_initrwnd "$iface"
+				applied=1
+				break 2
 			fi
-			set_max_initcwnd_initrwnd "$iface"
-			applied=1
-			break
-		fi
+		done
 	done
 	[ "$applied" -eq 0 ] && set_congestion cubic "Wi-Fi" && set_max_initcwnd_initrwnd "$iface"
 	return $applied
@@ -137,15 +147,19 @@ apply_cellular_settings() {
 	set_tcp_pacing 120 200
 	
 	for algo in $congestion_algorithms; do
-		if [ -f "$MODPATH/rmnet_data_$algo" ]; then
-			set_congestion "$algo" "Cellular"
-			if [ "$algo" = "bbr" ]; then
-				set_qdisc "$iface" "fq_codel"
+		for filepath in "$MODPATH/rmnet_data_${algo}"_*; do
+			if [ -f "$filepath" ]; then
+				set_congestion "$algo" "Cellular"
+
+				local filename="${filepath##*/}"
+				local qdisc="${filename#rmnet_data_${algo}_}"
+				set_qdisc "$iface" "$qdisc" "Cellular"
+
+				set_max_initcwnd_initrwnd "$iface"
+				applied=1
+				break 2
 			fi
-			set_max_initcwnd_initrwnd "$iface"
-			applied=1
-			break
-		fi
+		done
 	done
 	[ "$applied" -eq 0 ] && set_congestion cubic "Cellular" && set_max_initcwnd_initrwnd "$iface"
 	return $applied
@@ -183,6 +197,10 @@ last_mode=""
 change_time=0
 vowifi_pending=0
 vowifi_start_time=0
+
+resetprop -w sys.boot_completed 0
+
+sleep 20
 
 while true; do
 	current_time=$(date +%s)
