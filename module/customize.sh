@@ -124,6 +124,7 @@ fi
 
 cp "$MODPATH/module.prop" "$MODPATH/module.prop.bak"
 
+mkdir -p /data/adb/post-fs-data.d
 cat << 'EOF' > /data/adb/post-fs-data.d/tcp_optimiser.sh
 #!/system/bin/sh
 MODDIR=/data/adb/modules/tcp_optimiser
