@@ -319,6 +319,19 @@ run_qdisc_watchdog() {
     done
 }
 
+set_tcp_mem() {
+	local mem_total_kb=$(awk '/MemTotal/{print $2}' /proc/meminfo)
+	local mem_total_pages=$((mem_total_kb * 1024 / 4096))
+
+	# cap tcp_mem at ~6-8% of total RAM for "pressure", ~10% for "max"
+	local low=$((mem_total_pages * 4 / 100))
+	local pressure=$((mem_total_pages * 6 / 100))
+	local high=$((mem_total_pages * 10 / 100))
+
+	echo "$low $pressure $high" > /proc/sys/net/ipv4/tcp_mem 2>/dev/null
+	log_print "tcp_mem set to: $low $pressure $high pages (mem_total=${mem_total_kb}KB)"
+}
+
 # Start Run Code
 
 # IPv4 TCP optimizations
@@ -356,7 +369,7 @@ echo 1 > /proc/sys/net/ipv4/tcp_recovery 2>/dev/null
 echo 0 > /proc/sys/net/ipv4/tcp_slow_start_after_idle 2>/dev/null
 echo 1 > /proc/sys/net/ipv4/tcp_no_metrics_save 2>/dev/null
 echo 204800 > /proc/sys/net/core/optmem_max 2>/dev/null
-echo "524288 786432 1048576" > /proc/sys/net/ipv4/tcp_mem 2>/dev/null
+set_tcp_mem
 echo 10000 > /proc/sys/net/ipv4/tcp_rto_max 2>/dev/null
 echo 2 > /proc/sys/net/ipv4/tcp_early_retrans 2>/dev/null
 echo 1 > /proc/sys/net/ipv4/tcp_thin_linear_timeouts 2>/dev/null
