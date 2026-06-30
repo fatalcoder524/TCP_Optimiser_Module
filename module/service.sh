@@ -107,28 +107,31 @@ set_qdisc() {
 		qdisc_args="pie target 5ms ecn"
 	fi
 
-	if run_as_su "tc qdisc replace dev $iface root $handle_flag $qdisc_args"; then
+	if eval run_tc qdisc replace dev "$iface" root $handle_flag $qdisc_args; then
 		log_print "Applied qdisc: $qdisc ($iface)"
+		sleep 0.2
 
 		if [ "$qdisc" = "htb" ]; then
-			run_as_su "tc class add dev $iface parent 1: classid 1:1 htb rate 1000mbit ceil 1000mbit" 2>/dev/null
-			run_as_su "tc qdisc add dev $iface parent 1:1 handle 10: fq_codel limit 1024 target 5ms interval 100ms ecn" 2>/dev/null
-			
+			run_tc class add dev "$iface" parent 1: classid 1:1 htb rate 1000mbit ceil 1000mbit 2>/dev/null
+			run_tc qdisc add dev "$iface" parent 1:1 handle 10: fq_codel limit 1024 target 5ms interval 100ms ecn 2>/dev/null
+
 			log_print " [+] Attached low-latency fq_codel leaf to HTB root on $iface"
 		elif [ "$qdisc" = "multiq" ]; then
-			local qdisc_show=$(su -c "tc qdisc show dev $iface | grep multiq")
+			sleep 2
+			local qdisc_show=$(run_tc qdisc show dev "$iface" | grep multiq)
 			local root_handle=$(echo "$qdisc_show" | awk '{print $3}')
 			local total_bands=$(echo "$qdisc_show" | grep -o "bands [^ ]*" | awk '{print $2}' | cut -d'/' -f1)
 			
 			root_handle=${root_handle:-"1:"}
 			total_bands=${total_bands:-4}
 			
+			log_print " [#] $qdisc_show"
 			log_print " [~] Configuring $total_bands bands on parent $root_handle dynamically..."
 
 			local i=1
 			while [ "$i" -le "$total_bands" ]; do
 				local hex_id=$(printf "%x" "$i")
-				run_as_su "tc qdisc add dev $iface parent ${root_handle}${hex_id} handle $((i + 10)): fq_codel limit 1024 target 5ms interval 100ms ecn" 2>/dev/null
+				run_tc qdisc add dev "$iface" parent ${root_handle}${hex_id} handle $((i + 10)): fq_codel limit 1024 target 5ms interval 100ms ecn 2>/dev/null
 				i=$((i + 1))
 			done
 
@@ -136,7 +139,7 @@ set_qdisc() {
 		elif [ "$qdisc" = "prio" ]; then
 			local b=1
 			while [ "$b" -le 3 ]; do
-				run_as_su "tc qdisc add dev $iface parent 1:$b handle $((b + 20)): fq_codel limit 1024 target 5ms interval 100ms ecn" 2>/dev/null
+				run_tc qdisc add dev "$iface" parent 1:$b handle $((b + 20)): fq_codel limit 1024 target 5ms interval 100ms ecn 2>/dev/null
 				b=$((b + 1))
 			done
 			log_print " [+] Attached low-latency fq_codel leaves to all prio bands on $iface"

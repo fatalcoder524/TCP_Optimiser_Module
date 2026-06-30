@@ -124,6 +124,8 @@ fi
 
 cp "$MODPATH/module.prop" "$MODPATH/module.prop.bak"
 
+chmod +x "$MODPATH/bin/tc"
+
 mkdir -p /data/adb/post-fs-data.d
 cat << 'EOF' > /data/adb/post-fs-data.d/tcp_optimiser.sh
 #!/system/bin/sh

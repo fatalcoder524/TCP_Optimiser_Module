@@ -32,6 +32,11 @@ run_as_su() {
 	return $status
 }
 
+run_tc() {
+	"$MODPATH/bin/tc" "$@"
+	return $?
+}
+
 get_wifi_calling_state() {
 	rm -f "$DUMPSYS_TMP_FILE"
 	dumpsys activity service SystemUIService > "$DUMPSYS_TMP_FILE" 2>/dev/null

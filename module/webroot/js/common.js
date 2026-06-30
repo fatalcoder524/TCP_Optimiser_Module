@@ -74,7 +74,9 @@ export async function get_active_algorithm () {
 
 export async function get_active_qdisc(iface) {
 	try {
-		const { stdout: qdiscRaw } = await exec(`tc qdisc show dev ${iface} 2>/dev/null`);
+		const moduleInfo = await readModuleProp();
+		const tcBin = moduleInfo && moduleInfo.moduleDir ? `${moduleInfo.moduleDir}/bin/tc` : 'tc';
+		const { stdout: qdiscRaw } = await exec(`${tcBin} qdisc show dev ${iface} 2>/dev/null`);
 		if (qdiscRaw) {
 			// Extract the very first word after 'qdisc ' (e.g., 'fq', 'netem', 'fq_codel')
 			const match = qdiscRaw.trim().match(/^qdisc\s+(\S+)/);
