@@ -98,6 +98,7 @@ set_qdisc() {
         pfifo_fast)  		qdisc_args="pfifo_fast" ;;
         cake)        		qdisc_args="cake besteffort triple-isolate wash" ;;
         pie)         		qdisc_args="pie target 15ms tupdate 15ms alpha 2 beta 20 ecn" ;;
+		fq_pie)      		qdisc_args="fq_pie limit 2000 target 15ms tupdate 15ms alpha 2 beta 20 ecn" ;;
     esac
 
 	if [ -n "$handle_flag" ]; then
