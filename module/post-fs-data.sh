@@ -62,3 +62,8 @@ echo 1 > /proc/sys/net/ipv4/tcp_thin_dupack 2>/dev/null
 echo 300 > /proc/sys/net/ipv4/tcp_keepalive_time 2>/dev/null
 echo 15 > /proc/sys/net/ipv4/tcp_keepalive_intvl 2>/dev/null
 echo 5 > /proc/sys/net/ipv4/tcp_keepalive_probes 2>/dev/null
+
+# Protective Load Balancing (PLB) Real-Time Rerouting
+echo 1 > /proc/sys/net/ipv4/tcp_plb_enabled 2>/dev/null
+echo 2 > /proc/sys/net/ipv4/tcp_plb_idle_retransmit_rounds 2>/dev/null
+echo 3 > /proc/sys/net/ipv4/tcp_plb_retransmit_threshold 2>/dev/null
