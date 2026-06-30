@@ -3,6 +3,7 @@ import { updateModuleStatus, initHome, updateHomeUI } from './home.js';
 import { initLogs } from './logs.js';
 import { initSettings } from './settings.js';
 import { addLog, read_log_file, updateLogsUI } from './logs.js';
+import { fullScreen } from './kernelsu.js';
 
 const router_state = {
 	moduleInformation: null,
@@ -95,6 +96,7 @@ const realtimeUpdater = async () => {
 
 document.addEventListener('DOMContentLoaded', async () => {
 	const navLinks = document.querySelectorAll('.footer-nav .nav-item');
+	fullScreen(true);
 
 	function loadPage(pageName) {
 		return new Promise(async (resolve, reject) => {
