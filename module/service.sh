@@ -290,12 +290,7 @@ current_time=0
 
 while true; do
 	iface=$(get_active_iface)
-	if [ -z "$iface" ]; then
-		sleep 5
-		current_time=$((current_time + 5))
-		continue
-	fi
-
+	
 	new_mode="none"
 	case "$iface" in
 		wlan*|tun*) new_mode="Wi-Fi" ;;
@@ -304,7 +299,7 @@ while true; do
 	esac
 
 	if [ "$new_mode" != "$last_mode" ] || [ -f "$MODPATH/force_apply" ]; then
-		if [ "$((current_time - change_time))" -ge "$DEBOUNCE_TIME" ]; then
+		if [ "$((current_time - change_time))" -ge "$DEBOUNCE_TIME" ] || [ "$last_mode" = "none" ]; then
 			applied=0
 			if [ "$new_mode" = "Wi-Fi" ]; then
 				# Start waiting for VoWiFi
@@ -317,7 +312,9 @@ while true; do
 			last_mode="$new_mode"
 			change_time="$current_time"
 			rm -f "$MODPATH/force_apply"
-		fi
+		else
+            log_print "[DEBUG] Network change throttled by DEBOUNCE_TIME. Retrying shortly..."
+        fi
 	fi
 	
 	# === Wi-Fi Pending Logic ===
