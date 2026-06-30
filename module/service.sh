@@ -71,6 +71,11 @@ EOF
 	fi
 }
 
+get_active_root_qdisc() {
+	local iface="$1"
+	run_tc qdisc show dev "$iface" 2>/dev/null
+}
+
 set_qdisc() {
 	local iface="$1"
 	local qdisc="$2"
@@ -79,37 +84,32 @@ set_qdisc() {
 	local qdisc_args="$qdisc"
 	local handle_flag=""
 
-	if [ "$qdisc" = "fq" ]; then
-		qdisc_args="fq pacing limit 2000 flow_limit 40 buckets 1024 initial_quantum 15000"
-	elif [ "$qdisc" = "fq_codel" ]; then
-		qdisc_args="fq_codel limit 1024 target 5ms interval 100ms ecn"
-	elif [ "$qdisc" = "htb" ]; then
-		handle_flag="handle 1:"
-		qdisc_args="htb default 1 r2q 10"
-	elif [ "$qdisc" = "sfq" ]; then
-		qdisc_args="sfq"
-	elif [ "$qdisc" = "multiq" ]; then
-		qdisc_args="multiq"
-	elif [ "$qdisc" = "tbf" ]; then
-		qdisc_args="tbf rate 1000mbit burst 100kb latency 50ms"
-	elif [ "$qdisc" = "prio" ]; then
-		handle_flag="handle 1:"
-		qdisc_args="prio bands 3"
-	elif [ "$qdisc" = "pfifo" ]; then
-		qdisc_args="pfifo limit 2000"
-	elif [ "$qdisc" = "bfifo" ]; then
-		qdisc_args="bfifo limit 3145728"
-	elif [ "$qdisc" = "pfifo_fast" ]; then
-		qdisc_args="pfifo_fast"
-	elif [ "$qdisc" = "cake" ]; then
-		qdisc_args="cake besteffort triple-isolate wash"
-	elif [ "$qdisc" = "pie" ]; then
-		qdisc_args="pie target 5ms ecn"
-	fi
+	case "$qdisc" in
+        fq)          qdisc_args="fq pacing limit 2000 flow_limit 40 buckets 1024 initial_quantum 15000" ;;
+        fq_codel)    qdisc_args="fq_codel limit 1024 target 5ms interval 100ms ecn" ;;
+        htb)         handle_flag="handle 1:"; qdisc_args="htb default 1 r2q 10" ;;
+        sfq)         qdisc_args="sfq" ;;
+        multiq)      qdisc_args="multiq" ;;
+        tbf)         qdisc_args="tbf rate 1000mbit burst 100kb latency 50ms" ;;
+        prio)        handle_flag="handle 1:"; qdisc_args="prio bands 3" ;;
+        pfifo)       qdisc_args="pfifo limit 2000" ;;
+        bfifo)       qdisc_args="bfifo limit 3145728" ;;
+        pfifo_fast)  qdisc_args="pfifo_fast" ;;
+        cake)        qdisc_args="cake besteffort triple-isolate wash" ;;
+        pie)         qdisc_args="pie target 5ms ecn" ;;
+    esac
 
-	if eval run_tc qdisc replace dev "$iface" root $handle_flag $qdisc_args; then
+	if [ -n "$handle_flag" ]; then
+        run_tc qdisc replace dev "$iface" root $handle_flag $qdisc_args 2>/dev/null
+    else
+        run_tc qdisc replace dev "$iface" root $qdisc_args 2>/dev/null
+    fi
+
+	sleep 2
+	local check_qdisc=$(get_active_root_qdisc "$iface" | grep "$qdisc")
+	if [ -n "$check_qdisc" ]; then
 		log_print "Applied qdisc: $qdisc ($iface)"
-		sleep 0.2
+		sleep 0.1
 
 		if [ "$qdisc" = "htb" ]; then
 			run_tc class add dev "$iface" parent 1: classid 1:1 htb rate 1000mbit ceil 1000mbit 2>/dev/null
@@ -117,8 +117,8 @@ set_qdisc() {
 
 			log_print " [+] Attached low-latency fq_codel leaf to HTB root on $iface"
 		elif [ "$qdisc" = "multiq" ]; then
-			sleep 2
-			local qdisc_show=$(run_tc qdisc show dev "$iface" | grep multiq)
+			sleep 0.5
+			local qdisc_show=$(get_active_root_qdisc "$iface" | grep multiq)
 			local root_handle=$(echo "$qdisc_show" | awk '{print $3}')
 			local total_bands=$(echo "$qdisc_show" | grep -o "bands [^ ]*" | awk '{print $2}' | cut -d'/' -f1)
 			
@@ -183,6 +183,21 @@ get_wifi_freq() {
 	iw dev "$iface" link 2>/dev/null | grep "freq:" | awk '{print $2}'
 }
 
+extract_qdisc_from_path() {
+    local filepath="$1"
+    local algo="$2"
+    local filename="${filepath##*/}" # Strips the directory path, leaves just the filename
+
+    case "$filename" in
+        rmnet_data_"${algo}"_*)
+            echo "${filename#rmnet_data_${algo}_}"
+            ;;
+        wlan_"${algo}"_*)
+            echo "${filename#wlan_${algo}_}"
+            ;;
+    esac
+}
+
 apply_wifi_settings() {
 	local iface="$1"
 	local applied=0
@@ -206,8 +221,7 @@ apply_wifi_settings() {
 			if [ -f "$filepath" ]; then
 				set_congestion "$algo" "Wi-Fi"
 				
-				local filename="${filepath##*/}"
-				local qdisc="${filename#wlan_${algo}_}"
+				local qdisc=$(extract_qdisc_from_path "$filepath" "$algo")
 				set_qdisc "$iface" "$qdisc" "Wi-Fi"
 
 				set_max_initcwnd_initrwnd "$iface"
@@ -231,8 +245,7 @@ apply_cellular_settings() {
 			if [ -f "$filepath" ]; then
 				set_congestion "$algo" "Cellular"
 
-				local filename="${filepath##*/}"
-				local qdisc="${filename#rmnet_data_${algo}_}"
+				local qdisc=$(extract_qdisc_from_path "$filepath" "$algo")
 				set_qdisc "$iface" "$qdisc" "Cellular"
 
 				set_max_initcwnd_initrwnd "$iface"
@@ -243,6 +256,62 @@ apply_cellular_settings() {
 	done
 	[ "$applied" -eq 0 ] && set_congestion cubic "Cellular" && set_max_initcwnd_initrwnd "$iface"
 	return $applied
+}
+
+run_qdisc_watchdog() {
+    local watch_iface="$1"
+    local mode="$2"
+	local sleep_interval="${3:-15}"
+	local target_qdisc=""
+
+	if [ "$mode" = "Wi-Fi" ]; then
+		for algo in $congestion_algorithms; do
+			for filepath in "$MODPATH/wlan_${algo}_"*; do
+				if [ -f "$filepath" ]; then
+					target_qdisc=$(extract_qdisc_from_path "$filepath" "$algo")
+					break 2
+				fi
+			done
+		done
+	elif [ "$mode" = "Cellular" ]; then
+		for algo in $congestion_algorithms; do
+			for filepath in "$MODPATH/rmnet_data_${algo}_"*; do
+				if [ -f "$filepath" ]; then
+					target_qdisc=$(extract_qdisc_from_path "$filepath" "$algo")
+					break 2
+				fi
+			done
+		done
+	fi
+
+	if [ -z "$target_qdisc" ]; then
+        if [ "$mode" = "Wi-Fi" ]; then target_qdisc="htb"; else target_qdisc="multiq"; fi
+    fi
+    
+    log_print "[WATCHDOG] Started monitoring $watch_iface for $target_qdisc..."
+
+    while true; do
+        local link_state=""
+        if [ -f "/sys/class/net/$watch_iface/operstate" ]; then
+            link_state=$(cat "/sys/class/net/$watch_iface/operstate")
+        fi
+
+        if [ "$link_state" = "down" ] || [ -z "$link_state" ]; then
+            log_print "[WATCHDOG] Interface $watch_iface is inactive (state: $link_state). Stopping monitor."
+            break
+        fi
+
+        local current_status=$(get_active_root_qdisc "$watch_iface")
+        if ! echo "$current_status" | grep -q "$target_qdisc"; then
+            log_print "[!] Hijack detected on $watch_iface!"
+            log_print "[!] Current state: $(echo "$current_status" | head -n 1)"
+            log_print "[#] Re-applying $target_qdisc optimization..."
+            
+			set_qdisc "$watch_iface" "$target_qdisc" "$mode"
+			set_max_initcwnd_initrwnd "$watch_iface"
+        fi
+        sleep "$sleep_interval"
+    done
 }
 
 # Start Run Code
@@ -281,6 +350,7 @@ last_mode=""
 change_time=0
 vowifi_pending=0
 vowifi_start_time=0
+WATCHDOG_PID=""
 
 resetprop -w sys.boot_completed 0
 
@@ -290,7 +360,7 @@ current_time=0
 
 while true; do
 	iface=$(get_active_iface)
-	
+
 	new_mode="none"
 	case "$iface" in
 		wlan*|tun*) new_mode="Wi-Fi" ;;
@@ -302,12 +372,24 @@ while true; do
 		if [ "$((current_time - change_time))" -ge "$DEBOUNCE_TIME" ] || [ "$last_mode" = "none" ]; then
 			applied=0
 			if [ "$new_mode" = "Wi-Fi" ]; then
+				if [ -n "$WATCHDOG_PID" ]; then
+					kill "$WATCHDOG_PID" 2>/dev/null
+					WATCHDOG_PID=""
+				fi
 				# Start waiting for VoWiFi
 				vowifi_pending=1
 				vowifi_start_time="$current_time"
 			elif [ "$new_mode" = "Cellular" ]; then
+				if [ -n "$WATCHDOG_PID" ]; then
+					kill "$WATCHDOG_PID" 2>/dev/null
+					WATCHDOG_PID=""
+				fi
+
 				vowifi_pending=0
 				apply_cellular_settings "$iface"
+
+				run_qdisc_watchdog "$iface" "Cellular" "60" &
+    			WATCHDOG_PID=$!
 			fi
 			last_mode="$new_mode"
 			change_time="$current_time"
@@ -325,10 +407,16 @@ while true; do
 			log_print "[INFO] VoWiFi timeout reached. Applying Wi-Fi settings..."
 			vowifi_pending=0
 			apply_wifi_settings "$iface"
+
+			run_qdisc_watchdog "$iface" "Wi-Fi" "30" &
+    		WATCHDOG_PID=$!
 		elif [ "$vowifi" -eq 0 ]; then
 			log_print "[INFO] VoWiFi activated. Applying Wi-Fi settings..."
 			vowifi_pending=0
 			apply_wifi_settings "$iface"
+
+			run_qdisc_watchdog "$iface" "Wi-Fi" "30" &
+    		WATCHDOG_PID=$!
 		fi
 	fi
 
