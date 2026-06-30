@@ -110,10 +110,10 @@ set_qdisc() {
 	if [ -n "$check_qdisc" ]; then
 		log_print "Applied qdisc: $qdisc ($iface)"
 		sleep 0.1
-
+		
 		if [ "$qdisc" = "htb" ]; then
 			run_tc class add dev "$iface" parent 1: classid 1:1 htb rate 1000mbit ceil 1000mbit 2>/dev/null
-			run_tc qdisc add dev "$iface" parent 1:1 handle 10: fq_codel limit 1024 target 5ms interval 100ms ecn 2>/dev/null
+			run_tc qdisc add dev "$iface" parent 1:1 handle 10: fq_codel ecn 2>/dev/null
 
 			log_print " [+] Attached low-latency fq_codel leaf to HTB root on $iface"
 		elif [ "$qdisc" = "multiq" ]; then
