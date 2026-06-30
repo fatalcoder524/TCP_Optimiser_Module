@@ -246,16 +246,16 @@ apply_cellular_settings() {
 
 # IPv4 TCP optimizations
 echo 1 > /proc/sys/net/ipv4/tcp_ecn 2>/dev/null
-echo "pfifo_fast" > /proc/sys/net/core/default_qdisc 2>/dev/null
-echo 150 > /proc/sys/net/ipv4/tcp_pacing_ca_ratio 2>/dev/null
-echo 200 > /proc/sys/net/ipv4/tcp_pacing_ss_ratio 2>/dev/null
+echo "fq_codel" > /proc/sys/net/core/default_qdisc 2>/dev/null
+echo 120 > /proc/sys/net/ipv4/tcp_pacing_ca_ratio 2>/dev/null
+echo 180 > /proc/sys/net/ipv4/tcp_pacing_ss_ratio 2>/dev/null
 echo 1 > /proc/sys/net/ipv4/tcp_window_scaling 2>/dev/null
 echo "4096 2097152 16777216" > /proc/sys/net/ipv4/tcp_rmem 2>/dev/null
 echo "4096 2097152 16777216" > /proc/sys/net/ipv4/tcp_wmem 2>/dev/null
 echo 16777216 > /proc/sys/net/core/rmem_max 2>/dev/null
 echo 16777216 > /proc/sys/net/core/wmem_max 2>/dev/null
 echo 4096 > /proc/sys/net/ipv4/tcp_max_syn_backlog 2>/dev/null
-echo 1 > /proc/sys/net/ipv4/tcp_mtu_probing 2>/dev/null
+echo 0 > /proc/sys/net/ipv4/tcp_mtu_probing 2>/dev/null
 
 # IPv6 TCP tuning
 echo 1 > /proc/sys/net/ipv6/tcp_ecn 2>/dev/null
