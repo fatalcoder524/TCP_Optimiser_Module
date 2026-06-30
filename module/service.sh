@@ -373,27 +373,26 @@ while true; do
 
 	if [ "$new_mode" != "$last_mode" ] || [ -f "$MODPATH/force_apply" ]; then
 		if [ "$((current_time - change_time))" -ge "$DEBOUNCE_TIME" ] || [ "$last_mode" = "none" ]; then
-			applied=0
+			
+			if [ -n "$WATCHDOG_PID" ]; then
+				kill "$WATCHDOG_PID" 2>/dev/null
+				WATCHDOG_PID=""
+			fi
+			
 			if [ "$new_mode" = "Wi-Fi" ]; then
-				if [ -n "$WATCHDOG_PID" ]; then
-					kill "$WATCHDOG_PID" 2>/dev/null
-					WATCHDOG_PID=""
-				fi
 				# Start waiting for VoWiFi
 				vowifi_pending=1
 				vowifi_start_time="$current_time"
 			elif [ "$new_mode" = "Cellular" ]; then
-				if [ -n "$WATCHDOG_PID" ]; then
-					kill "$WATCHDOG_PID" 2>/dev/null
-					WATCHDOG_PID=""
-				fi
-
 				vowifi_pending=0
 				apply_cellular_settings "$iface"
 
 				run_qdisc_watchdog "$iface" "Cellular" "60" &
-    			WATCHDOG_PID=$!
-			fi
+				WATCHDOG_PID=$!
+			elif [ "$new_mode" = "none" ]; then
+                vowifi_pending=0
+                log_print "[INFO] Interface completely disconnected (Airplane Mode / Internet Off)."
+            fi
 			last_mode="$new_mode"
 			change_time="$current_time"
 			rm -f "$MODPATH/force_apply"
@@ -412,14 +411,14 @@ while true; do
 			apply_wifi_settings "$iface"
 
 			run_qdisc_watchdog "$iface" "Wi-Fi" "30" &
-    		WATCHDOG_PID=$!
+			WATCHDOG_PID=$!
 		elif [ "$vowifi" -eq 0 ]; then
 			log_print "[INFO] VoWiFi activated. Applying Wi-Fi settings..."
 			vowifi_pending=0
 			apply_wifi_settings "$iface"
 
 			run_qdisc_watchdog "$iface" "Wi-Fi" "30" &
-    		WATCHDOG_PID=$!
+			WATCHDOG_PID=$!
 		fi
 	fi
 
