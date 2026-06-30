@@ -43,8 +43,8 @@ set_max_initcwnd_initrwnd() {
 		mtu=${mtu:-1500}
 		mtu=$((mtu - 40))
 		maxInitrwndValue=$((maxBufferSize / mtu))
-		if [ "$maxInitrwndValue" -gt 64 ]; then
-			maxInitrwndValue=64
+		if [ "$maxInitrwndValue" -gt 20 ]; then
+			maxInitrwndValue=20
 		fi
 		local applied
 		applied=0
