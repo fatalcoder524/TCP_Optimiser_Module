@@ -147,6 +147,7 @@ const fetchAvailableQdiscs = async (force = false) => {
 							{
 								qdiscs.push("pfifo");
 								qdiscs.push("bfifo");
+								qdiscs.push("pfifo_head_drop");
 							}
 							else
 							{

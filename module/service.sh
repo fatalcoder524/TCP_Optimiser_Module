@@ -85,18 +85,19 @@ set_qdisc() {
 	local handle_flag=""
 
 	case "$qdisc" in
-        fq)          qdisc_args="fq pacing limit 2000 flow_limit 40 buckets 1024 initial_quantum 15000" ;;
-        fq_codel)    qdisc_args="fq_codel limit 1024 target 5ms interval 100ms ecn" ;;
-        htb)         handle_flag="handle 1:"; qdisc_args="htb default 1 r2q 10" ;;
-        sfq)         qdisc_args="sfq" ;;
-        multiq)      qdisc_args="multiq" ;;
-        tbf)         qdisc_args="tbf rate 1000mbit burst 100kb latency 50ms" ;;
-        prio)        handle_flag="handle 1:"; qdisc_args="prio bands 3" ;;
-        pfifo)       qdisc_args="pfifo limit 2000" ;;
-        bfifo)       qdisc_args="bfifo limit 3145728" ;;
-        pfifo_fast)  qdisc_args="pfifo_fast" ;;
-        cake)        qdisc_args="cake besteffort triple-isolate wash" ;;
-        pie)         qdisc_args="pie target 5ms ecn" ;;
+        fq)          		qdisc_args="fq pacing limit 2000 flow_limit 40 buckets 1024 initial_quantum 15000" ;;
+        fq_codel)    		qdisc_args="fq_codel limit 1024 target 5ms interval 100ms ecn" ;;
+        htb)         		handle_flag="handle 1:"; qdisc_args="htb default 1 r2q 10" ;;
+        sfq)         		qdisc_args="sfq" ;;
+        multiq)      		qdisc_args="multiq" ;;
+        tbf)         		qdisc_args="tbf rate 1000mbit burst 100kb latency 50ms" ;;
+        prio)        		handle_flag="handle 1:"; qdisc_args="prio bands 3" ;;
+        pfifo)       		qdisc_args="pfifo limit 2000" ;;
+        pfifo_head_drop) 	qdisc_args="pfifo_head_drop limit 2000" ;;
+        bfifo)       		qdisc_args="bfifo limit 3145728" ;;
+        pfifo_fast)  		qdisc_args="pfifo_fast" ;;
+        cake)        		qdisc_args="cake besteffort triple-isolate wash" ;;
+        pie)         		qdisc_args="pie target 5ms ecn" ;;
     esac
 
 	if [ -n "$handle_flag" ]; then
