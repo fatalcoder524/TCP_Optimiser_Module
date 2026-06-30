@@ -2,11 +2,15 @@
 
 sleep 2
 
+AVAIL_CC="$(cat /proc/sys/net/ipv4/tcp_available_congestion_control)"
+# Check if BBR3 is available
+if echo "$AVAIL_CC" | grep -qw bbr3; then
+    CONG="bbr3"
 # Check if BBR is available
-if grep -qw bbr /proc/sys/net/ipv4/tcp_available_congestion_control; then
-	CONG=bbr
+elif echo "$AVAIL_CC" | grep -qw bbr; then
+    CONG="bbr"
 else
-	CONG=cubic
+	CONG="cubic"
 fi
 
 # Set congestion control
